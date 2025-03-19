@@ -6,6 +6,7 @@ from .models import User, UserSubscription, PaymentPlan
 
 stripe.api_key = settings.STRIPE_SECRET_KEY  # Ensure it's set in settings.py
 
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
     duration = serializers.ChoiceField(choices=UserSubscription.DURATION_CHOICES, write_only=True)
@@ -19,6 +20,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         duration = validated_data.pop("duration")
         plan_name = validated_data.pop("plan_name")
+  
+        # Check if a user already exists with this email
+        if User.objects.filter(email=validated_data["email"]).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
 
         # Fetch plan based on name
         plan = PaymentPlan.objects.filter(name=plan_name, is_active=True).first()
@@ -50,8 +55,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                     "quantity": 1,
                 }
             ],
-            success_url=f"{settings.FRONTEND_URL}/choose-plan/payment?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{settings.FRONTEND_URL}/choose-plan/payment-failed",
+            success_url=f"{settings.FRONTEND_URL}/payment?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.FRONTEND_URL}/payment-failed",
         )
 
         # Store Subscription in DB (Initially inactive)

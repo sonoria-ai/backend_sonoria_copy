@@ -17,6 +17,7 @@ from rest_framework.decorators import action
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from .serializers import PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from rest_framework.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -27,17 +28,24 @@ class UserRegistrationViewSet(viewsets.ViewSet):
 
     def create(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        result = serializer.save()
+        try:
+            serializer.is_valid(raise_exception=True)
+            result = serializer.save()
 
-        return Response(
-            {
-                "message": "User registered successfully",
-                "payment_url": result["payment_url"],
-                "registered_at": result["user"].date_joined,
-            },
-            status=status.HTTP_201_CREATED,
-        )
+            return Response(
+                {
+                    "message": "User registered successfully",
+                    "payment_url": result["payment_url"],
+                    "registered_at": result["user"].date_joined,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except ValidationError as e:
+            # Handle validation errors (e.g., email already exists)
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 
