@@ -1,6 +1,6 @@
 import logging
 from rest_framework import serializers
-from .models import RegistrationStep,Organization, Option ,Service,BusinessHours,ExceptionalClosing,ReservationType,SMSSetting, GoogleCalendarSetting,OrganizationFAQ,Assistant,FallbackNumber
+from .models import RegistrationStep,Organization, Option ,Service,BusinessHours,ExceptionalClosing,ReservationType,SMSSetting, GoogleCalendarSetting,OrganizationFAQ,Assistant,FallbackNumber,OrganizationPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,11 @@ class RegistrationStepSerializer(serializers.ModelSerializer):
             logger.warning(f"Invalid step number: {value}")
             raise serializers.ValidationError("Step number must be greater than 0.")
         return value
+
+class OrganizationPromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationPrompt
+        fields = '__all__'
 
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:

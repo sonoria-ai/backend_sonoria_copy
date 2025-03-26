@@ -1,7 +1,9 @@
 from django.db import models
+from users.models import User
 
 # Organization Model
 class Organization(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="organizations")
     name = models.CharField(max_length=255)
     business_line = models.CharField(max_length=255)
     industry = models.CharField(max_length=255)
@@ -58,9 +60,20 @@ class BusinessHours(models.Model):
     hours_type = models.CharField(max_length=10, choices=HOURS_TYPE_CHOICES, default='custom')
     open_time = models.TimeField(blank=True, null=True)
     close_time = models.TimeField(blank=True, null=True)
+    break_start_time = models.TimeField(blank=True, null=True)
+    break_end_time = models.TimeField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.organization.name} - {self.day_of_week} ({self.hours_type})"
+
+class OrganizationPrompt(models.Model):
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name='prompt')
+    generated_prompt = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Prompt for {self.organization.name}"
+
 
 
 # Step 3: Exceptional Closings (Temporary Closures & Special Openings)

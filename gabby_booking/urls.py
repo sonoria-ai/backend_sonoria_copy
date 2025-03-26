@@ -1,6 +1,6 @@
 from django.urls import path,include
 from rest_framework.routers import DefaultRouter
-from .views import RegistrationStepAPIView,OrganizationViewSet,ServiceViewSet,OptionViewSet,BusinessHoursViewSet,ExceptionalClosingViewSet,ReservationTypeViewSet,SMSSettingViewSet,GoogleCalendarSettingViewSet,OrganizationFAQViewSet,AssistantViewSet,FallbackNumberViewSet
+from .views import RegistrationStepAPIView,OrganizationViewSet,ServiceViewSet,OptionViewSet,BusinessHoursViewSet,ExceptionalClosingViewSet,ReservationTypeViewSet,SMSSettingViewSet,GoogleCalendarSettingViewSet,OrganizationFAQViewSet,AssistantViewSet,FallbackNumberViewSet,generate_prompt_view
 
 router = DefaultRouter()
 router.register(r'organizations', OrganizationViewSet, basename='organization')
@@ -18,4 +18,5 @@ router.register(r'fallback-numbers', FallbackNumberViewSet, basename='fallback-n
 urlpatterns = [
     path('registration-steps/', RegistrationStepAPIView.as_view(), name='registration-steps'),
     path('', include(router.urls)),
+    path('generate-prompt/<int:organization_id>/', generate_prompt_view, name='generate_prompt')
 ]

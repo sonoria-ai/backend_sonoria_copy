@@ -5,3 +5,9 @@ stripe
 djangorestframework
 django-cors-headers
 djangorestframework-simplejwt
+flask 
+flask-cors
+httpx
+websockets
+langchain
+langchain-community

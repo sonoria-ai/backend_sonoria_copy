@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
+from django.urls import reverse  
+from django.utils.html import format_html  
+
 from .models import (
     Organization, RegistrationStep, Service, Option, BusinessHours, ExceptionalClosing,
-    ReservationType, SMSSetting, GoogleCalendarSetting, OrganizationFAQ, Assistant, FallbackNumber
+    ReservationType, SMSSetting, GoogleCalendarSetting, OrganizationFAQ, Assistant, FallbackNumber,OrganizationPrompt
 )
 
 ### INLINE ADMIN CLASSES ###
@@ -57,19 +60,26 @@ class GoogleCalendarSettingInline(admin.StackedInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ('name', 'business_line', 'industry', 'registration_step', 'admin_view_link')
-    search_fields = ('name', 'industry', 'business_line')
+    list_display = ('name', 'owner', 'business_line', 'industry', 'registration_step', 'admin_view_link')
+    search_fields = ('name', 'industry', 'business_line', 'owner__email')
     list_filter = ('industry',)
     ordering = ('name',)
     inlines = [
         RegistrationStepInline, ServiceInline, BusinessHoursInline, ExceptionalClosingInline,
         ReservationTypeInline, FAQInline, AssistantInline, FallbackNumberInline
     ]
+
+    def owner(self, obj):
+        """Display the owner's email or username."""
+        return obj.owner.email if obj.owner else "No Owner"
     
+    owner.admin_order_field = 'owner'  # Allows sorting by owner
+    owner.short_description = "Owner"
     def admin_view_link(self, obj):
-        """Provides a direct link to the admin view of this object."""
-        return mark_safe(f'<a href="/admin/app_name/organization/{obj.id}/change/">View/Edit</a>')
-    admin_view_link.short_description = "Admin Actions"
+            """Provides a direct link to the admin view of this object."""
+            return mark_safe(f'<a href="/admin/app_name/organization/{obj.id}/change/">View/Edit</a>')
+        
+    admin_view_link.short_description = "Admin Actions" 
 
 
 ### SERVICE ADMIN ###
@@ -108,8 +118,9 @@ class OptionAdmin(admin.ModelAdmin):
 
 @admin.register(BusinessHours)
 class BusinessHoursAdmin(admin.ModelAdmin):
-    list_display = ('organization', 'day_of_week', 'hours_type', 'open_time', 'close_time')
+    list_display = ('organization', 'day_of_week', 'hours_type', 'open_time', 'break_start_time', 'break_end_time', 'close_time')
     list_filter = ('organization', 'hours_type')
+
 
 @admin.register(ExceptionalClosing)
 class ExceptionalClosingAdmin(admin.ModelAdmin):
@@ -148,3 +159,8 @@ class FallbackNumberAdmin(admin.ModelAdmin):
     list_display = ('organization', 'phone_number', 'reason')
     search_fields = ('organization__name', 'phone_number')
 
+@admin.register(OrganizationPrompt)
+class OrganizationPromptAdmin(admin.ModelAdmin):
+    list_display = ('organization', 'created_at')
+    search_fields = ('organization__name',)
+    ordering = ('-created_at',)

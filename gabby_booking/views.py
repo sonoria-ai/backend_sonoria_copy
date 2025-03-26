@@ -3,12 +3,38 @@ from django.http import JsonResponse
 from rest_framework import status,viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from .models import RegistrationStep,Organization, Service , Option,BusinessHours , ExceptionalClosing,ReservationType,SMSSetting,GoogleCalendarSetting,OrganizationFAQ,Assistant,FallbackNumber
+from .models import RegistrationStep,Organization, Service , Option,BusinessHours , ExceptionalClosing,ReservationType,SMSSetting,GoogleCalendarSetting,OrganizationFAQ,Assistant,FallbackNumber,OrganizationPrompt
 from .serializers import RegistrationStepSerializer,OrganizationSerializer, ServiceSerializer, OptionSerializer,BusinessHoursSerializer,ExceptionalClosingSerializer,ReservationTypeSerializer,SMSSettingSerializer, GoogleCalendarSettingSerializer,OrganizationFAQSerializer,AssistantSerializer,FallbackNumberSerializer
 from rest_framework.response import Response
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+from django.conf import settings 
+from rest_framework.decorators import api_view
+from django.shortcuts import get_object_or_404
+from .utils import generate_prompt
 
 logger = logging.getLogger(__name__)
 
+
+def generated_prompt(data):
+    """Use OpenAI to generate a real-time prompt for appointment booking."""
+    openai_api_key = settings.OPENAI_API_KEY  # Fetch API key from Django settings
+    llm = ChatOpenAI(model_name="gpt-4o", temperature=0.7, openai_api_key=openai_api_key)
+
+    business_name = data.get("name", "the business")
+    business_description = data.get("description", "a professional service provider")
+
+    meta_prompt = (
+        f"You are an AI prompt generator. Your task is to create a well-structured and effective prompt for OpenAI’s assistant, "
+        f"which will act as a business-specific AI agent. \n\n"
+        f"The AI assistant will handle appointment bookings for a business named '{business_name}', which provides '{business_description}'. \n\n"
+        f"Your response should be a fully formatted prompt that can be used directly in OpenAI for real-time interactions."
+    )
+
+    message = HumanMessage(content=meta_prompt)
+    response = llm([message])
+
+    return response.content
 class RegistrationStepAPIView(APIView):
     # permission_classes = [IsAuthenticated]  # Require authentication
 
@@ -71,7 +97,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                organization = serializer.save()
+                prompt_text = generated_prompt(request.data)
+                print(prompt_text)
+                OrganizationPrompt.objects.create(organization=organization, generated_prompt=prompt_text)
                 logger.info(f"New organization created: {serializer.data}")
                 return Response({"message": "Organization created", "data": serializer.data}, status=status.HTTP_201_CREATED)
             logger.warning(f"Validation failed: {serializer.errors}")
@@ -116,6 +145,34 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error deleting organization: {str(e)}", exc_info=True)
             return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+@api_view(['GET'])
+def generate_prompt_view(request, organization_id):
+    organization = get_object_or_404(Organization, id=organization_id)
+    assistant = organization.assistants.first()
+    reservation_type = organization.reservation_types.first()
+
+    data = {
+        "assistant_name": assistant.name if assistant else "N/A",
+        "company_name": organization.name,
+        "company_industry": organization.industry,
+        "company_description": organization.description,
+        "type_of_reservation": reservation_type.type_choice if reservation_type else "N/A",
+        "allow_modification": "Yes" if reservation_type.allow_modifications else "No",
+        "modification_deadline": reservation_type.modification_deadline.strftime("%H:%M") if reservation_type.modification_deadline else "N/A",
+        "allow_annulation": "Yes" if reservation_type.allow_cancellations else "No",
+        "annulation_deadline": reservation_type.cancellation_deadline.strftime("%H:%M") if reservation_type.cancellation_deadline else "N/A",
+        "cutoff": "Yes" if reservation_type.cutoff_time else "No",
+        "call_transfer": "No transfer",
+        "cutoff_deadline": reservation_type.cutoff_time.strftime("%H:%M") if reservation_type.cutoff_time else "N/A",
+    }
+
+    first_message = "Hello! How can I assist you today?"
+    prompt = generate_prompt(data, first_message)
+
+    return Response({"prompt": prompt})
+
         
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
