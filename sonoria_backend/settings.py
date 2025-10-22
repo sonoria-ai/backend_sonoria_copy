@@ -24,10 +24,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 
-DEBUG = os.getenv("DEBUG", "True") == "True"
+try:
+    DEBUG = int(os.getenv("DEBUG")) == 1
+except ValueError:
+    DEBUG = False
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 AUTH_USER_MODEL = "users.User"
 
@@ -35,6 +38,7 @@ AUTH_USER_MODEL = "users.User"
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # Must be first for ASGI support
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,36 +48,63 @@ INSTALLED_APPS = [
     "users",
     "rest_framework",
     'rest_framework_simplejwt',
+    'gabby_booking',
+    'assistant',
     "corsheaders",
-    'gabby_booking'
+    'channels',
 ]
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",  # 👈 must be FIRST
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    # CSRF disabled for API - using JWT authentication instead
+    # "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Logging middleware at the end (after CORS headers are added)
+    "sonoria_backend.middleware.RequestLoggingMiddleware",
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://irascibly-transcriptive-stefan.ngrok-free.dev",
 ]
-
-CORS_ALLOW_ALL_ORIGINS = True
-
+CORS_ALLOW_CREDENTIALS = False  # Set to False since we're using JWT in headers
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+CORS_PREFLIGHT_MAX_AGE = 0  # Set to 0 to bust browser cache, change back to 86400 after testing
+CORS_EXPOSE_HEADERS = ["content-type", "x-csrftoken"]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    "COERCE_DECIMAL_TO_STRING": False,
 }
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
@@ -81,6 +112,7 @@ FRONTEND_URL = "http://localhost:3000"
 
 
 AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
@@ -104,6 +136,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'sonoria_backend.wsgi.application'
+ASGI_APPLICATION = 'sonoria_backend.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"

@@ -3,11 +3,12 @@ from django.http import JsonResponse
 from rest_framework import status,viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 from .models import RegistrationStep,Organization, Service , Option,BusinessHours , ExceptionalClosing,ReservationType,SMSSetting,GoogleCalendarSetting,OrganizationFAQ,Assistant,FallbackNumber,OrganizationPrompt
 from .serializers import RegistrationStepSerializer,OrganizationSerializer, ServiceSerializer, OptionSerializer,BusinessHoursSerializer,ExceptionalClosingSerializer,ReservationTypeSerializer,SMSSettingSerializer, GoogleCalendarSettingSerializer,OrganizationFAQSerializer,AssistantSerializer,FallbackNumberSerializer
 from rest_framework.response import Response
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain_community.chat_models import ChatOpenAI
+from langchain_core.messages import HumanMessage
 from django.conf import settings 
 from rest_framework.decorators import api_view
 from django.shortcuts import get_object_or_404
@@ -32,7 +33,7 @@ def generated_prompt(data):
     )
 
     message = HumanMessage(content=meta_prompt)
-    response = llm([message])
+    response = llm.invoke([message])
 
     return response.content
 class RegistrationStepAPIView(APIView):
@@ -71,6 +72,22 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
     # permission_classes = [IsAuthenticated]  # Require authentication
+
+    @action(detail=False, methods=['get'], url_path='current')
+    def current(self, request):
+        """Get current user's organization with assistant_created status."""
+        try:
+            # Get first organization for the logged-in user
+            # In production, you'd filter by request.user
+            organization = Organization.objects.first()
+            if not organization:
+                return Response({"error": "No organization found"}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = self.get_serializer(organization)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching current organization: {str(e)}", exc_info=True)
+            return Response({"error": "Something went wrong"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def list(self, request, *args, **kwargs):
         """Retrieve all organizations."""

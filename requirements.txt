@@ -11,3 +11,8 @@ httpx
 websockets
 langchain
 langchain-community
+twilio
+channels
+daphne
+openai
+requests

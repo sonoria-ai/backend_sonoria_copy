@@ -80,3 +80,21 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, min_length=6)
+
+class UserSignupSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ["email", "password"]
+
+    def create(self, validated_data):
+        if User.objects.filter(email=validated_data["email"]).exists():
+            raise serializers.ValidationError({"email": "A user with this email already exists."})
+
+        user = User.objects.create_user(
+            username=validated_data["email"],
+            email=validated_data["email"],
+            password=validated_data["password"]
+        )
+        return user

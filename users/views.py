@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 import stripe
 from django.conf import settings
 from .models import UserSubscription, User
-from .serializers import UserRegistrationSerializer
+from .serializers import UserRegistrationSerializer, UserSignupSerializer
 from django.contrib.auth import get_user_model
 from rest_framework.viewsets import ViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -91,6 +91,27 @@ class SignInViewSet(ViewSet):
         
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
     
+
+class UserSignupViewSet(ViewSet):
+    permission_classes = [AllowAny]
+
+    def create(self, request):
+        serializer = UserSignupSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "message": "User created successfully",
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 class PasswordResetViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"])

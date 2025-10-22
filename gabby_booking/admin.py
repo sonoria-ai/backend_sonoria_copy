@@ -5,7 +5,8 @@ from django.utils.html import format_html
 
 from .models import (
     Organization, RegistrationStep, Service, Option, BusinessHours, ExceptionalClosing,
-    ReservationType, SMSSetting, GoogleCalendarSetting, OrganizationFAQ, Assistant, FallbackNumber,OrganizationPrompt
+    ReservationType, SMSSetting, GoogleCalendarSetting, OrganizationFAQ, Assistant, FallbackNumber,OrganizationPrompt,
+    ServiceLocation, Location, Customer, Appointment
 )
 
 ### INLINE ADMIN CLASSES ###
@@ -22,6 +23,7 @@ class ServiceInline(admin.TabularInline):
 class OptionInline(admin.TabularInline):
     model = Option
     extra = 1
+    filter_horizontal = ('services',)
 
 class BusinessHoursInline(admin.TabularInline):
     model = BusinessHours
@@ -60,7 +62,7 @@ class GoogleCalendarSettingInline(admin.StackedInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ('name', 'owner', 'business_line', 'industry', 'registration_step', 'admin_view_link')
+    list_display = ('name', 'owner', 'business_line', 'industry', 'current_step', 'admin_view_link')
     search_fields = ('name', 'industry', 'business_line', 'owner__email')
     list_filter = ('industry',)
     ordering = ('name',)
@@ -72,13 +74,14 @@ class OrganizationAdmin(admin.ModelAdmin):
     def owner(self, obj):
         """Display the owner's email or username."""
         return obj.owner.email if obj.owner else "No Owner"
-    
-    owner.admin_order_field = 'owner'  # Allows sorting by owner
+
+    owner.admin_order_field = 'owner'
     owner.short_description = "Owner"
+
     def admin_view_link(self, obj):
             """Provides a direct link to the admin view of this object."""
             return mark_safe(f'<a href="/admin/app_name/organization/{obj.id}/change/">View/Edit</a>')
-        
+
     admin_view_link.short_description = "Admin Actions" 
 
 
@@ -89,7 +92,6 @@ class ServiceAdmin(admin.ModelAdmin):
     list_display = ('name', 'organization', 'price', 'duration')
     search_fields = ('name', 'organization__name')
     list_filter = ('organization',)
-    inlines = [OptionInline]
 
 
 ### RESERVATION TYPE ADMIN ###
@@ -112,9 +114,10 @@ class RegistrationStepAdmin(admin.ModelAdmin):
 
 @admin.register(Option)
 class OptionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'organization', 'service', 'price', 'duration')
-    search_fields = ('name', 'organization__name', 'service__name')
-    list_filter = ('organization', 'service')
+    list_display = ('name', 'organization', 'price', 'duration')
+    search_fields = ('name', 'organization__name')
+    list_filter = ('organization',)
+    filter_horizontal = ('services',)
 
 @admin.register(BusinessHours)
 class BusinessHoursAdmin(admin.ModelAdmin):
@@ -164,3 +167,68 @@ class OrganizationPromptAdmin(admin.ModelAdmin):
     list_display = ('organization', 'created_at')
     search_fields = ('organization__name',)
     ordering = ('-created_at',)
+
+
+@admin.register(ServiceLocation)
+class ServiceLocationAdmin(admin.ModelAdmin):
+    list_display = ('organization', 'address_type', 'main_address')
+    search_fields = ('organization__name',)
+    list_filter = ('address_type',)
+
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'get_organization', 'address')
+    search_fields = ('name', 'service_location__organization__name')
+
+    def get_organization(self, obj):
+        return obj.service_location.organization.name
+    get_organization.short_description = 'Organization'
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ('email', 'first_name', 'last_name', 'phone', 'get_organization', 'created_at')
+    search_fields = ('email', 'first_name', 'last_name', 'organization__name')
+    list_filter = ('organization', 'created_at')
+    ordering = ('-created_at',)
+
+    def get_organization(self, obj):
+        return obj.organization.name
+    get_organization.short_description = 'Organization'
+
+
+@admin.register(Appointment)
+class AppointmentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'customer', 'service', 'date', 'time', 'status', 'total_price', 'get_organization')
+    search_fields = ('customer__email', 'customer__first_name', 'customer__last_name', 'service__name')
+    list_filter = ('status', 'organization', 'date')
+    ordering = ('-date', '-time')
+    filter_horizontal = ('options',)
+    readonly_fields = ('created_at', 'updated_at', 'confirmed_at', 'cancelled_at')
+
+    fieldsets = (
+        ('Booking Information', {
+            'fields': ('organization', 'customer', 'status')
+        }),
+        ('Service Details', {
+            'fields': ('service', 'options', 'location', 'provider')
+        }),
+        ('Date & Time', {
+            'fields': ('date', 'time', 'duration')
+        }),
+        ('Pricing', {
+            'fields': ('total_price',)
+        }),
+        ('Notes', {
+            'fields': ('note', 'internal_notes')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'confirmed_at', 'cancelled_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_organization(self, obj):
+        return obj.organization.name
+    get_organization.short_description = 'Organization'

@@ -21,4 +21,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("users/", include("users.urls")),
     path("api/", include("gabby_booking.urls")),
+    path("api/booking/", include("gabby_booking.urls_booking")),  # Booking portal endpoints
+    path("assistant/", include("assistant.urls")),
 ]
